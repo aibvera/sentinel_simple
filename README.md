@@ -71,3 +71,12 @@ docker logs -f sentinel
 ```bash
 docker stop sentinel
 ```
+
+## Adicionales
+
+Descargar carpeta de videos desde linux a pc windows:
+
+```bash
+scp -r abueno@IP_DEL_SERVIDOR:~/sentinel-videos/2026-09-23 "$env:USERPROFILE\Downloads\"
+```
+Reemplaza IP_DEL_SERVIDOR y la fecha del folder a descargar por los valores reales.
