@@ -41,6 +41,10 @@ class Config:
     timezone: tzinfo | None
     watchdog_seconds: float
     log_level: str
+    # Telegram
+    telegram_bot_token: str
+    telegram_chat_id: str
+    telegram_alert_minutes: float
 
     def now(self) -> datetime:
         """Devuelve la fecha/hora actual en la zona horaria configurada."""
@@ -88,6 +92,11 @@ def load_config() -> Config:
     if not save_path.is_absolute():
         save_path = PROJECT_DIR / save_path
 
+    telegram_bot_token = _get("TELEGRAM_BOT_TOKEN", "")
+    telegram_chat_id = _get("TELEGRAM_CHAT_ID", "")
+    if bool(telegram_bot_token) != bool(telegram_chat_id):
+        sys.exit("Para las alertas por Telegram se necesitan TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID (o ninguno)")
+
     return Config(
         rtsp_url=_get("RTSP_URL"),
         rtsp_transport=_get("RTSP_TRANSPORT", "tcp"),
@@ -110,6 +119,9 @@ def load_config() -> Config:
         timezone=_get_timezone("TIMEZONE"),
         watchdog_seconds=_get_number("WATCHDOG_SECONDS", "60", float),
         log_level=_get("LOG_LEVEL", "INFO").upper(),
+        telegram_bot_token=telegram_bot_token,
+        telegram_chat_id=telegram_chat_id,
+        telegram_alert_minutes=_get_number("TELEGRAM_ALERT_MINUTES", "5", float),
     )
 
 

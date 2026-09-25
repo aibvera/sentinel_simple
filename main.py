@@ -3,6 +3,7 @@
 import logging
 import time
 
+from alerts import CameraAlert
 from camera import Camera
 from config import load_config, setup_logging
 from lifecycle import Watchdog, install_signal_handlers
@@ -25,12 +26,14 @@ def main() -> None:
     detector = MotionDetector(config)
     storage = Storage(config)
     recorder = Recorder(config, storage)
+    alert = CameraAlert(config)
 
     try:
         while not stop_event.is_set():
             try:
                 watchdog.beat()
                 frame = camera.read()
+                alert.update(frame is not None)
                 motion = detector.detect(frame)
                 recorder.update(frame, motion, camera.fps)
                 storage.maintain()

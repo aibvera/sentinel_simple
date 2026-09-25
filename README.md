@@ -13,6 +13,7 @@ Videovigilancia por detección de movimiento sobre una cámara RTSP. Graba clips
 | `recorder.py` | Abre/cierra clips con pre y post grabación, rota clips largos y se recupera de fallas de ffmpeg o del disco |
 | `storage.py` | Carpetas `AAAA-MM-DD/`, borrado por `ELIMINATION_DAYS` y por falta de espacio (`MIN_FREE_MB`) |
 | `lifecycle.py` | Apagado ordenado (Ctrl+C / `docker stop`) y watchdog que reinicia el proceso si se congela |
+| `alerts.py` | Aviso por Telegram si la cámara pasa `TELEGRAM_ALERT_MINUTES` sin imagen, y otro cuando vuelve |
 
 Los mp4 son **fragmentados**: si el proceso muere a mitad de una grabación, el archivo sigue siendo reproducible (se pierden como máximo ~2 s).
 
@@ -21,6 +22,14 @@ Los mp4 son **fragmentados**: si el proceso muere a mitad de una grabación, el 
 Copia `.env.example` a `.env` y ajusta los valores (cada variable está comentada ahí).
 
 Para calibrar `DISIMIL_TH` usa `LOG_LEVEL=DEBUG`: cada frame con movimiento muestra su % de disimilitud.
+
+## Alertas por Telegram
+
+1. En Telegram, habla con **@BotFather**, envía `/newbot` y copia el token en `TELEGRAM_BOT_TOKEN`.
+2. Abre el chat con tu bot nuevo y envíale cualquier mensaje (un bot no puede escribirte si tú no le escribes primero).
+3. Abre `https://api.telegram.org/bot<TOKEN>/getUpdates` en el navegador y copia el número de `"chat":{"id":...}` en `TELEGRAM_CHAT_ID`.
+
+Si el token o el chat id están mal, el log muestra `Telegram rechazó el mensaje` con el motivo. Si no hay internet, el aviso se reintenta hasta que salga.
 
 ## Ejecución local
 
