@@ -4,13 +4,15 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from datetime import datetime, tzinfo
+from datetime import date, datetime, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
 PROJECT_DIR = Path(__file__).resolve().parent
+# Subcarpeta de SAVE_PATH donde queda un archivo de log por día.
+LOG_DIR = "logs"
 
 
 @dataclass(frozen=True)
@@ -125,10 +127,69 @@ def load_config() -> Config:
     )
 
 
+class DailyFileHandler(logging.Handler):
+    """Escribe el log en <SAVE_PATH>/logs/AAAA-MM-DD.log: un archivo por día, borrados tras ELIMINATION_DAYS."""
+
+    def __init__(self, config: Config):
+        """Prepara el handler (la carpeta y el archivo se crean con el primer mensaje)."""
+        super().__init__()
+        self._folder = config.save_path / LOG_DIR
+        self._timezone = config.timezone
+        self._retention_days = config.elimination_days
+        self._day: date | None = None
+        self._stream = None
+        self._failed = False
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Agrega la línea al archivo del día del mensaje, cambiando de archivo a medianoche."""
+        try:
+            day = datetime.fromtimestamp(record.created, self._timezone).date()
+            if day != self._day:
+                self._open(day)
+            self._stream.write(self.format(record) + "\n")
+            self._stream.flush()
+            self._failed = False
+        except Exception:
+            self._close()
+            if not self._failed:  # Si el disco falla, se avisa una sola vez y no en cada línea.
+                self._failed = True
+                self.handleError(record)
+
+    def close(self) -> None:
+        """Cierra el archivo abierto."""
+        self._close()
+        super().close()
+
+    def _open(self, day: date) -> None:
+        """Abre (en modo agregar) el archivo del día y borra los logs más antiguos que la retención."""
+        self._close()
+        self._folder.mkdir(parents=True, exist_ok=True)
+        self._stream = open(self._folder / f"{day:%Y-%m-%d}.log", "a", encoding="utf-8")
+        self._day = day
+        if self._retention_days > 0:
+            for path in self._folder.glob("*.log"):
+                try:
+                    if (day - date.fromisoformat(path.stem)).days > self._retention_days:
+                        path.unlink()
+                except (ValueError, OSError):
+                    continue  # Archivo con otro nombre o que no se pudo borrar.
+
+    def _close(self) -> None:
+        """Cierra el archivo actual para que el siguiente mensaje lo vuelva a abrir."""
+        if self._stream is not None:
+            try:
+                self._stream.close()
+            except OSError:
+                pass
+        self._stream = None
+        self._day = None
+
+
 def setup_logging(config: Config) -> None:
-    """Configura el logging a consola usando la zona horaria del sistema de vigilancia."""
-    handler = logging.StreamHandler(sys.stdout)
+    """Configura el logging a consola y a archivos diarios, con la zona horaria del sistema de vigilancia."""
     formatter = logging.Formatter("%(asctime)s %(levelname)-7s [%(name)s] %(message)s", "%Y-%m-%d %H:%M:%S")
     formatter.converter = lambda ts: datetime.fromtimestamp(ts, config.timezone).timetuple()
-    handler.setFormatter(formatter)
-    logging.basicConfig(level=config.log_level, handlers=[handler], force=True)
+    handlers = [logging.StreamHandler(sys.stdout), DailyFileHandler(config)]
+    for handler in handlers:
+        handler.setFormatter(formatter)
+    logging.basicConfig(level=config.log_level, handlers=handlers, force=True)

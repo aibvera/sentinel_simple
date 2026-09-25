@@ -7,7 +7,7 @@ Videovigilancia por detección de movimiento sobre una cámara RTSP. Graba clips
 | Archivo | Responsabilidad |
 |---|---|
 | `main.py` | Orquestador: inicializa todo y corre el loop eterno |
-| `config.py` | Lee y valida las variables del `.env` |
+| `config.py` | Lee y valida las variables del `.env`; configura los logs (consola + un archivo por día) |
 | `camera.py` | Conexión RTSP con timeouts y reconexión automática (backoff exponencial) |
 | `motion.py` | % de disimilitud contra el frame anterior; hay movimiento si supera `DISIMIL_TH` |
 | `recorder.py` | Abre/cierra clips con pre y post grabación, rota clips largos y se recupera de fallas de ffmpeg o del disco |
@@ -30,6 +30,20 @@ Para calibrar `DISIMIL_TH` usa `LOG_LEVEL=DEBUG`: cada frame con movimiento mues
 3. Abre `https://api.telegram.org/bot<TOKEN>/getUpdates` en el navegador y copia el número de `"chat":{"id":...}` en `TELEGRAM_CHAT_ID`.
 
 Si el token o el chat id están mal, el log muestra `Telegram rechazó el mensaje` con el motivo. Si no hay internet, el aviso se reintenta hasta que salga.
+
+## Logs
+
+Además de la consola (`docker logs`), cada día queda en su propio archivo junto a los videos, y se borra tras `ELIMINATION_DAYS` igual que ellos:
+
+```
+SAVE_PATH/
+├── 2026-09-25/          videos del día
+│   └── 14-32-10.mp4
+└── logs/
+    └── 2026-09-25.log   log del día
+```
+
+Como están en el volumen montado, sobreviven a reinicios y a reconstrucciones del contenedor.
 
 ## Ejecución local
 
@@ -89,3 +103,9 @@ Descargar carpeta de videos desde linux a pc windows:
 scp -r abueno@IP_DEL_SERVIDOR:~/sentinel-videos/2026-09-23 "$env:USERPROFILE\Downloads\"
 ```
 Reemplaza IP_DEL_SERVIDOR y la fecha del folder a descargar por los valores reales.
+
+Descargar el log de un día:
+
+```bash
+scp abueno@IP_DEL_SERVIDOR:~/sentinel-videos/logs/2026-09-23.log "$env:USERPROFILE\Downloads\"
+```
